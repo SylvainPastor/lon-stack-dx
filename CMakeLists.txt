@@ -189,7 +189,7 @@ target_link_libraries(lon_stack_dx PUBLIC Threads::Threads)
 
 # Set build defaults at compile time
 target_compile_definitions(lon_stack_dx
-    PRIVATE
+    PUBLIC
     ISI_ID=${ISI_ID}
     IUP_ID=${IUP_ID}
     LINK_ID=${LINK_ID}
