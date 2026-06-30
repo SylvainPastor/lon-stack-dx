@@ -731,6 +731,11 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost);
  * parameter is ignored and the USB interface is initialized with the necessary
  * settings for LON communication.
  */
+// Serial line speed for the USB LON interface. Default B115200 suits the U50;
+// the U61 requires B460800. Override at build time with -DLON_USB_BAUDRATE.
+#ifndef LON_USB_BAUDRATE
+#define LON_USB_BAUDRATE B115200
+#endif
 LonStatusCode HalOpenUsb(int ldisc
 #if OS_IS(LINUX)
         ,
@@ -806,9 +811,9 @@ LonStatusCode HalOpenUsb(int ldisc
     // device; the device may then echo them back, producing
     // duplicate reads of the same frame.
     tio.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
-    // Set a commonly used speed; for CDC-ACM many devices still expect it
-    cfsetispeed(&tio, B115200);
-    cfsetospeed(&tio, B115200);
+    // Serial speed (LON_USB_BAUDRATE): B115200 for U50, B460800 for U61.
+    cfsetispeed(&tio, LON_USB_BAUDRATE);
+    cfsetospeed(&tio, LON_USB_BAUDRATE);
     tio.c_cc[VMIN] = 0;
     tio.c_cc[VTIME] = 0;
     if (tcsetattr(*usb_fd_out, TCSANOW, &tio) < 0) {
