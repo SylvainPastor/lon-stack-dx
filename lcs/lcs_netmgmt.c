@@ -2685,8 +2685,16 @@ void HandleNM(APPReceiveParam *appReceiveParamPtr, APDU *apduPtr)
         HandleNMNVFetch(appReceiveParamPtr, apduPtr);
         break;
     case NM_MANUAL_SERVICE_REQUEST:
-        /* This is unsolicited message from a node. Reference implementation 
-        ignores manual service request message from other nodes */
+        /* This is an unsolicited message from a node. The reference
+        implementation ignores it; we forward the sender's Neuron ID and
+        Program ID to the application (passive discovery). The payload is
+        UniqueNodeId (6) followed by ProgramId (8); see
+        ManualServiceRequestMessage(). */
+        if (appReceiveParamPtr->pduSize >=
+                1 + IZOT_UNIQUE_ID_LENGTH + IZOT_PROGRAM_ID_LENGTH) {
+            IzotServicePinReceived(&apduPtr->data[0],
+                    &apduPtr->data[IZOT_UNIQUE_ID_LENGTH]);
+        }
         break;
     default:
         /* This is where any message that is not taken care of should be

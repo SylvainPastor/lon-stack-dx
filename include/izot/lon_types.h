@@ -3322,6 +3322,25 @@ typedef void (*IzotMsgArrivedFunction)(const IzotReceiveAddress *const pAddress,
         const IzotByte code, const IzotByte *const pData, const unsigned dataLength);
 
 /*
+ *  Event: IzotServicePinReceived
+ *  Occurs when a manual service-pin message is received from another node.
+ *
+ *  Parameters:
+ *  pNeuronId  - pointer to the sender's 6-byte unique (Neuron) ID
+ *  pProgramId - pointer to the sender's 8-byte program ID
+ *
+ *  Remarks:
+ *  A device broadcasts this message when its service pin is pressed. The
+ *  reference implementation otherwise ignores it; register a handler to use it
+ *  for passive device discovery.
+ *
+ *  Use <IzotServicePinReceivedRegistrar> to register a handler for this event.
+ *  Without an application-specific handler, this event does nothing.
+ */
+typedef void (*IzotServicePinReceivedFunction)(const IzotByte *const pNeuronId,
+        const IzotByte *const pProgramId);
+
+/*
  *  Event: IzotResponseArrived
  *  Occurs when a response arrives.
  *

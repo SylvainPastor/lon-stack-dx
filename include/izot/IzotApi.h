@@ -1471,6 +1471,26 @@ IZOT_EXTERNAL_FN LonStatusCode IzotDatapointUpdateCompletedRegistrar(IzotDatapoi
 IZOT_EXTERNAL_FN LonStatusCode IzotMsgArrivedRegistrar(IzotMsgArrivedFunction handler);
 
 /*
+ * Handles the IzotServicePinReceived event.
+ *   Occurs when a manual service-pin message arrives from another node.
+ * Parameters:
+ *   pNeuronId: Pointer to the sender's 6-byte unique (Neuron) ID
+ *   pProgramId: Pointer to the sender's 8-byte program ID
+ */
+IZOT_EXTERNAL_FN void IzotServicePinReceived(const IzotByte *const pNeuronId,
+        const IzotByte *const pProgramId);
+
+/*
+ * Registers an IzotServicePinReceived() event handler.
+ * Parameters:
+ *   handler: Pointer to the IzotServicePinReceivedFunction to register
+ * Returns:
+ *   LonStatusNoError if successful, otherwise a <LonStatusCode> error code.
+ */
+IZOT_EXTERNAL_FN LonStatusCode IzotServicePinReceivedRegistrar(
+        IzotServicePinReceivedFunction handler);
+
+/*
  * Registers an IzotResponseArrived() event handler.
  * Parameters:
  *   handler: Pointer to the IzotResponseArrivedFunction to register

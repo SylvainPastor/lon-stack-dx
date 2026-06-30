@@ -38,6 +38,7 @@ IzotOnlineFunction izot_online_handler = NULL;
 IzotOfflineFunction izot_offline_handler = NULL;
 IzotMsgCompletedFunction izot_msg_completed_handler = NULL;
 IzotMsgArrivedFunction izot_msg_arrived_handler = NULL;
+IzotServicePinReceivedFunction izot_service_pin_received_handler = NULL;
 IzotResponseArrivedFunction izot_response_arrived_handler = NULL;
 IzotMemoryReadFunction izot_memory_read_handler = NULL;
 IzotMemoryWriteFunction izot_memory_write_handler = NULL;
@@ -1834,6 +1835,23 @@ void IzotMsgArrived(const IzotReceiveAddress *const pAddress,
 }
 
 /*
+ * Handles the IzotServicePinReceived event.
+ *  Occurs when a manual service-pin message arrives from another node.
+ * Parameters:
+ *   pNeuronId: Pointer to the sender's 6-byte unique (Neuron) ID
+ *   pProgramId: Pointer to the sender's 8-byte program ID
+ * Returns:
+ *   None
+ */
+void IzotServicePinReceived(const IzotByte *const pNeuronId,
+        const IzotByte *const pProgramId)
+{
+    if (izot_service_pin_received_handler) {
+        izot_service_pin_received_handler(pNeuronId, pProgramId);
+    }
+}
+
+/*
  * Handles the IzotResponseArrived event.
  *  Occurs when a response arrives.
  * Parameters:
@@ -2396,6 +2414,24 @@ IZOT_EXTERNAL_FN LonStatusCode IzotMsgArrivedRegistrar(IzotMsgArrivedFunction ha
 {
     if (handler) {
         izot_msg_arrived_handler = handler;
+        return LonStatusNoError;
+    } else {
+        return LonStatusCallbackNotRegistered;
+    }
+}
+
+/*
+ * Registers an IzotServicePinReceived() event handler.
+ * Parameters:
+ *   handler: Pointer to the IzotServicePinReceivedFunction to register
+ * Returns:
+ *   LonStatusNoError if successful, otherwise a <LonStatusCode> error code.
+ */
+IZOT_EXTERNAL_FN LonStatusCode IzotServicePinReceivedRegistrar(
+        IzotServicePinReceivedFunction handler)
+{
+    if (handler) {
+        izot_service_pin_received_handler = handler;
         return LonStatusNoError;
     } else {
         return LonStatusCallbackNotRegistered;
