@@ -342,6 +342,14 @@ void LinkLayerUsbReceive(void)
         }
         return;  // No message to process
     }
+    // Forward only layer 2 incoming messages to the network layer, and set up
+    // the LPDU view of the message (single USB MIP path).
+    if (sicb.ni_command != LonNiIncomingL2Cmd) {
+        INCR_STATS(LcsMissed);
+        return;
+    }
+    lpduSize = sicb.short_pdu_length;
+    lpduHeaderPtr = (LPDUHeader *)&sicb.pdu[0];
 #elif LINK_IS(MULTIPLE_USB_MIPS) || PHYSICAL_IS(LON_PL_PROXY)
     int niIndex;
 

@@ -568,6 +568,20 @@ static LonStatusCode SendResync(int iface_index)
         // Wait for null response from the interface to confirm synchronization
         state->null_wait_timer = OsalGetTickCount();
         state->downlink_state = DOWNLINK_WAIT_STARTUP_RESYNC_ACK;
+    } else if (state->lon_usb_iface_type == LON_USB_INTERFACE_U61) {
+        // The MIP/U61 has no resync command. Like the kernel driver, prompt the
+        // interface by setting its layer mode at startup; the interface enters
+        // that mode and replies with a null code packet, confirming it is ready.
+        OsalPrintLog(INFO_LOG, status,
+                "SendResync: MIP/U61 set layer mode to start the interface");
+#if LINK_IS(USB_MIP)
+        status = WriteLonUsbMsg(state->configured_iface_mode == LON_IFACE_MODE_LAYER5
+                        ? &MsgModeL5
+                        : &MsgModeL2);
+#else   // !LINK_IS(USB_MIP)
+        status = WriteLonUsbMsg(iface_index,
+                state->configured_iface_mode == LON_IFACE_MODE_LAYER5 ? &MsgModeL5 : &MsgModeL2);
+#endif  // !LINK_IS(USB_MIP)
     }
     return status;
 }
@@ -1789,13 +1803,26 @@ static LonStatusCode WriteDownlinkMessage(int iface_index)
     size_t unexpanded_length, remaining;
     size_t expanded_length;
     uint8_t checksum;
-    // Send code packet with ACK prior to the message packet
-    state->downlink_ack_seq_number = ACK_WITH_NEXT_SEQ_NUM;
+    // Send a frame header prior to the message packet. The MIP/U61 uses
+    // sync-only framing (a single FRAME_SYNC byte); the MIP/U50 uses a code
+    // packet carrying command, sequence and ACK.
+    if (state->lon_usb_iface_type == LON_USB_INTERFACE_U61) {
+        // MIP/U61 header: FRAME_SYNC followed by a single zero byte (no code,
+        // sequence, ACK or checksum).
+        const uint8_t header[2] = {FRAME_SYNC, 0x00};
+        size_t header_written = 0;
+        if (!LON_SUCCESS(status = HalWriteUsb(state->usb_fd, header, sizeof(header),
+                        &header_written))) {
+            return status;
+        }
+    } else {
+        state->downlink_ack_seq_number = ACK_WITH_NEXT_SEQ_NUM;
 #if LINK_IS(USB_MIP)
-    WriteDownlinkCodePacket(MSG_FRAME_CMD, 1);
+        WriteDownlinkCodePacket(MSG_FRAME_CMD, 1);
 #else   // !LINK_IS(USB_MIP)
-    WriteDownlinkCodePacket(iface_index, MSG_FRAME_CMD, 1);
+        WriteDownlinkCodePacket(iface_index, MSG_FRAME_CMD, 1);
 #endif  // LINK_IS(USB_MIP) || LINK_IS(MULTIPLE_USB_MIPS)
+    }
     // Build the downlink message packet with byte expansion for FRAME_SYNC
     // bytes
     src_data_frame = (uint8_t *)&state->downlink_buffer.usb_ni_data_frame;
@@ -1818,11 +1845,14 @@ static LonStatusCode WriteDownlinkMessage(int iface_index)
             return status;
         }
     }
-    if ((*dest_exp_ni_data_frame_ptr++ = checksum) == FRAME_SYNC) {
-        *dest_exp_ni_data_frame_ptr++ = FRAME_SYNC;
-        expanded_length++;  // For stuffed checksum FRAME_SYNC byte
+    // The MIP/U61 frame carries no trailing checksum; the MIP/U50 does.
+    if (state->lon_usb_iface_type != LON_USB_INTERFACE_U61) {
+        if ((*dest_exp_ni_data_frame_ptr++ = checksum) == FRAME_SYNC) {
+            *dest_exp_ni_data_frame_ptr++ = FRAME_SYNC;
+            expanded_length++;  // For stuffed checksum FRAME_SYNC byte
+        }
+        expanded_length++;  // For checksum byte
     }
-    expanded_length++;  // For checksum byte
     // Optionally log the message being sent
     OsalPrintLog(DETAIL_TRACE_LOG, status,
             "WriteDownlinkMessage: Send message to USB with code 0x%02X, "
@@ -2995,8 +3025,13 @@ static LonStatusCode CheckUplinkCompleted(
                 ntoh16(((LonExtDataFrame *)&state->uplink_buffer.usb_ni_data_frame)
                                 ->ext_length_be);
     } else if (state->uplink_msg_index &&
-               (state->uplink_msg_index > (state->uplink_msg_length + 1))) {
-        // TODO: Verify +1 is correct in the above condition
+               (state->uplink_msg_index >
+                       (state->uplink_msg_length +
+                               (state->lon_usb_iface_type == LON_USB_INTERFACE_U61 ? 0 : 1)))) {
+        // For the MIP/U61, the length field counts the ni_command byte, so the
+        // whole message is in when index > length (vs > length + 1 for the U50).
+        // The length itself is converted to a PDU-only length by ReadLonUsbMsg()
+        // (which subtracts 1), so no adjustment is needed here.
         // Full message received
         uint8_t ni_cmd =
                 state->uplink_buffer.usb_ni_data_frame
@@ -3012,6 +3047,20 @@ static LonStatusCode CheckUplinkCompleted(
                         "CheckUplinkCompleted: NI Layer Mode setting "
                         "received: %d",
                         state->uplink_buffer.usb_ni_data_frame.pdu[0]);
+                if (state->lon_usb_iface_type == LON_USB_INTERFACE_U61 && !state->ready) {
+                    // The MIP/U61 confirms startup by echoing the layer mode it
+                    // entered; it has no U50-style resync/null/reset handshake.
+                    // Record the mode and mark the link ready.
+                    state->lon_stats.l2_l5_mode = state->current_iface_mode =
+                            state->uplink_buffer.usb_ni_data_frame.pdu[0];
+                    state->wait_for_reset = false;
+                    state->wait_for_null = false;
+                    state->ready = true;
+                    state->downlink_state = DOWNLINK_IDLE;
+                    OsalPrintLog(INFO_LOG, LonStatusNoError,
+                            "CheckUplinkCompleted: MIP/U61 link ready (layer %d)",
+                            state->current_iface_mode == LON_IFACE_MODE_LAYER2 ? 2 : 5);
+                }
             }
         } else {
             OsalPrintLog(PACKET_TRACE_LOG, LonStatusNoError,
