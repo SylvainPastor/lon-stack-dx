@@ -558,10 +558,10 @@ IZOT_EXTERNAL_FN LonStatusCode IzotSetNodeMode(const IzotNodeMode mode,
     case IzotApplicationReset:
         // Application reset
         gp->resetNode = TRUE;
-        nmp->resetCause = IzotSoftwareReset;  // Software reset.
+        nmp->resetCause = IzotSoftwareReset;  // Software reset
         break;
 
-    case IzotChangeState:  // Change State
+    case IzotChangeState:  // Change state
         IZOT_SET_ATTRIBUTE(eep->readOnlyData, IZOT_READONLY_NODE_STATE, state);
         // Preserve the state of appPgmMode except for IzotNoApplicationUnconfig
         if (IZOT_GET_ATTRIBUTE(eep->readOnlyData, IZOT_READONLY_NODE_STATE) ==
@@ -575,7 +575,7 @@ IZOT_EXTERNAL_FN LonStatusCode IzotSetNodeMode(const IzotNodeMode mode,
         break;
 
     case IzotPhysicalReset:
-        // New Physical Reset Sub Command
+        // Physical reset
         PhysicalResetRequested();
         break;
 
@@ -676,7 +676,7 @@ IZOT_EXTERNAL_FN LonStatusCode IzotUpdateDomain(unsigned index, unsigned length,
     Domain.Subnet = subnet;
     IZOT_SET_ATTRIBUTE(Domain, IZOT_DOMAIN_NODE, node);
     IZOT_SET_ATTRIBUTE(Domain, IZOT_DOMAIN_NONCLONE,
-            index == 0);  // 0 = if it's a clone domain, 1= otherwise
+            index == 0);  // 0 for a clone domain; 1 otherwise
     IZOT_SET_ATTRIBUTE(Domain, IZOT_DOMAIN_INVALID, 0);
 
     if (index == 0) {
@@ -859,20 +859,19 @@ IZOT_EXTERNAL_FN LonStatusCode IzotDatapointFlags(
 {
     LonStatusCode status = LonStatusNoError;
     uint16_t flags = pDatapointDef->Flags;
-    pDatapointDef->Flags =
-            (flags & ~IZOT_DATAPOINT_PRIORITY) | (priority ? IZOT_DATAPOINT_PRIORITY : 0);
-    pDatapointDef->Flags =
-            (flags & ~IZOT_DATAPOINT_IS_OUTPUT) |
-            ((direction == IzotDatapointDirectionIsOutput) ? IZOT_DATAPOINT_IS_OUTPUT
-                                                           : 0);
-    pDatapointDef->Flags = (flags & ~IZOT_DATAPOINT_CONFIG_CLASS) |
-                           (isProperty ? IZOT_DATAPOINT_CONFIG_CLASS : 0);
-    pDatapointDef->Flags = (flags & ~IZOT_DATAPOINT_PERSISTENT) |
-                           (persistent ? IZOT_DATAPOINT_PERSISTENT : 0);
-    pDatapointDef->Flags = (flags & ~IZOT_DATAPOINT_CHANGEABLE) |
-                           (changeable ? IZOT_DATAPOINT_CHANGEABLE : 0);
-    pDatapointDef->Flags = (flags & ~IZOT_DATAPOINT_AUTHENTICATED) |
-                           (authenticated ? IZOT_DATAPOINT_AUTHENTICATED : 0);
+    flags &= (uint16_t)~(IZOT_DATAPOINT_PRIORITY | IZOT_DATAPOINT_IS_OUTPUT |
+                         IZOT_DATAPOINT_CONFIG_CLASS | IZOT_DATAPOINT_PERSISTENT |
+                         IZOT_DATAPOINT_CHANGEABLE | IZOT_DATAPOINT_AUTHENTICATED);
+
+    flags |= (priority ? IZOT_DATAPOINT_PRIORITY : 0) |
+             ((direction == IzotDatapointDirectionIsOutput) ? IZOT_DATAPOINT_IS_OUTPUT
+                                                            : 0) |
+             (isProperty ? IZOT_DATAPOINT_CONFIG_CLASS : 0) |
+             (persistent ? IZOT_DATAPOINT_PERSISTENT : 0) |
+             (changeable ? IZOT_DATAPOINT_CHANGEABLE : 0) |
+             (authenticated ? IZOT_DATAPOINT_AUTHENTICATED : 0);
+
+    pDatapointDef->Flags = flags;
     return (status);
 }
 
@@ -1219,8 +1218,8 @@ IZOT_EXTERNAL_FN LonStatusCode IzotCreateStack(
     memset(cp->location, 0, sizeof(cp->location));
     cp->len[0] = 0;
     memset(cp->domainId[0], 0, IZOT_DOMAIN_ID_MAX_LENGTH);
-    cp->subnet[0] = rand() % 255 + 1;  // Avoid 0.
-    cp->node[0] = rand() % 124 + 2;    // Avoid 0 plus 1, 126, 127 (used by NIs)
+    cp->subnet[0] = rand() % 255 + 1;  // Avoid 0
+    cp->node[0] = rand() % 124 + 2;    // Avoid 0, 1, 126, 127 (used by NIs)
     cp->clone[0] = 1;
     cp->len[1] = 1;
     IzotByte tempDmn[6] = {0x7A};
